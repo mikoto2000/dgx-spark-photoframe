@@ -8,12 +8,13 @@ services:
     restart: unless-stopped
 
     devices:
-      - /dev/dri/card0:/dev/dri/card0
+      - "${DRM_DEVICE:-/dev/dri/card1}:${DRM_DEVICE:-/dev/dri/card1}"
 
     volumes:
       - "${PHOTO_DIR:-./photos}:/photos:ro"
 
     environment:
+      DRM_DEVICE: "${DRM_DEVICE:-/dev/dri/card1}"
       DRM_CONNECTOR: "${DRM_CONNECTOR:-DP-1}"
       PHOTO_DURATION: "${PHOTO_DURATION:-15}"
       PHOTO_ROTATE: "${PHOTO_ROTATE:-0}"

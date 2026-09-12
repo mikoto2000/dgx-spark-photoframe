@@ -15,7 +15,6 @@ set -euo pipefail
 # ファイル名に空白などが含まれていても扱えるよう、
 # find では NULL 区切りで取得している。
 find /photos \
-  -maxdepth 1 \
   -type f \
   \( \
     -iname '*.jpg' -o \
@@ -60,7 +59,7 @@ fi
 # docker stop などのシグナルを直接受信できるようにする。
 exec mpv \
   --vo=drm \
-  --drm-device=/dev/dri/card0 \
+  --drm-device="${DRM_DEVICE:-/dev/dri/card1}" \
   --drm-connector="${DRM_CONNECTOR:-DP-1}" \
   --drm-mode=preferred \
   --video-rotate="${PHOTO_ROTATE:-0}" \
