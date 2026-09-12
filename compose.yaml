@@ -5,7 +5,7 @@ services:
 
     container_name: dgx-spark-digital-photoframe
 
-    restart: unless-stopped
+    restart: always
 
     devices:
       - "${DRM_DEVICE:-/dev/dri/card1}:${DRM_DEVICE:-/dev/dri/card1}"
