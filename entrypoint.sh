@@ -66,6 +66,7 @@ exec mpv \
   --profile=sw-fast \
   --fullscreen \
   --no-audio \
+  --shuffle \
   --image-display-duration="${PHOTO_DURATION:-15}" \
   --loop-playlist=inf \
   --playlist=/tmp/photos.m3u
