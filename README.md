@@ -62,7 +62,7 @@ cp .env.example .env
 ```dotenv
 PHOTO_DIR=/home/mikoto/photos
 DRM_DEVICE=/dev/dri/card1
-DRM_CONNECTOR=Unknown-4
+DRM_CONNECTOR=DP-1
 PHOTO_DURATION=15
 PHOTO_ROTATE=0
 ```
@@ -98,9 +98,7 @@ DRM_DEVICE=/dev/dri/card1
 接続中の connector は次のコマンドで確認できます。
 
 ```bash
-for x in /sys/class/drm/card*-*/status; do
-  echo "$x: $(cat "$x")"
-done
+grep -H connected /sys/class/drm/card*-*/status
 ```
 
 または `mpv` から直接確認できます。
@@ -350,6 +348,17 @@ options nvidia-drm modeset=0
 が設定されていないか確認してください。
 
 DGX Spark / DGX OS の一部環境では `nvidia-drm modeset=0` により DRM connector が生成されず、HDMI や USB-C DisplayPort の画面出力が利用できなくなる場合があります。
+
+`options nvidia-drm modeset=0` が設定されている場合は、NVIDIA の `nvidia-drm-options-modeset0` パッケージが原因のことがあります。
+
+パッケージを削除してから再起動してください。
+
+```bash
+sudo apt purge nvidia-drm-options-modeset0
+sudo poweroff
+```
+
+再起動後もモニタが認識されない場合は、GX10 の電源ケーブルを抜いて 1 分程度待ってから電源を入れ直してください。
 
 ## Architecture
 
