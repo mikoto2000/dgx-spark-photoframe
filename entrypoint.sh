@@ -4,6 +4,36 @@
 # 未定義変数の参照や、パイプ途中のコマンド失敗もエラーとして扱う。
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/drm-selection.sh"
+device=/dev/dri/photoframe
+mode=${DRM_CONNECTOR:-auto}
+wanted=${DRM_MONITOR_EDID_SHA256:-}
+sysfs=${DRM_SYSFS_ROOT:-/host-sys/class/drm}
+echo "DRM device: $device"
+echo "DRM connector mode: $mode"
+if [[ ! -c $device || ! -r $device || ! -w $device ]]; then
+  echo "DRM device unavailable: $device must be a readable/writable character device. Check Compose devices and permissions." >&2
+  exit 1
+fi
+if ! { exec 3<> "$device"; }; then
+  echo "Cannot open DRM device: $device" >&2
+  exit 1
+fi
+exec 3>&-
+if [[ $mode == auto ]]; then
+  identity=$(stat -Lc '%t %T' "$device")
+  read -r major minor <<< "$identity"
+  card=$(drm_card_for_id "$sysfs" "$((16#$major)):$((16#$minor))")
+  echo "Detected DRM card: $card"
+fi
+connector=$(drm_resolve_connector "$sysfs" "${card:-}" "$mode" "$wanted")
+echo "Detected connector: $connector"
+if [[ $mode == auto && -n $wanted ]]; then
+  echo "EDID SHA256: ${wanted,,}"
+else
+  echo 'EDID SHA256: not used (explicit connector or no hash configured)'
+fi
+
 # /photos 配下から表示対象の画像ファイルを検索し、
 # mpv 用のプレイリストを生成する。
 #
@@ -40,7 +70,7 @@ fi
 # DRM_CONNECTOR:
 #   使用する DRM connector。
 #   例: DP-1
-#   未指定の場合は DP-1。
+#   未指定の場合は auto。
 #
 # PHOTO_DURATION:
 #   1枚の写真を表示する秒数。
@@ -57,10 +87,11 @@ fi
 #
 # exec を使用することで mpv 自体をコンテナの PID 1 とし、
 # docker stop などのシグナルを直接受信できるようにする。
+echo 'Starting mpv...'
 exec mpv \
   --vo=drm \
-  --drm-device="${DRM_DEVICE:-/dev/dri/card1}" \
-  --drm-connector="${DRM_CONNECTOR:-DP-1}" \
+  --drm-device="$device" \
+  --drm-connector="$connector" \
   --drm-mode=preferred \
   --video-rotate="${PHOTO_ROTATE:-0}" \
   --profile=sw-fast \
