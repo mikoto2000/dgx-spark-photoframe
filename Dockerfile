@@ -8,6 +8,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh entrypoint.sh
+COPY drm-selection.sh drm-selection.sh
 
 RUN chmod +x entrypoint.sh
 

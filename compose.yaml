@@ -8,13 +8,15 @@ services:
     restart: always
 
     devices:
-      - "${DRM_DEVICE:-/dev/dri/card1}:${DRM_DEVICE:-/dev/dri/card1}"
+      - "${DRM_DEVICE:?Set DRM_DEVICE to a host /dev/dri/by-path/*-card path}:/dev/dri/photoframe"
 
     volumes:
       - "${PHOTO_DIR:-./photos}:/photos:ro"
+      # Preserve sysfs symlink targets under devices/ as well as class/drm/.
+      - "/sys:/host-sys:ro"
 
     environment:
-      DRM_DEVICE: "${DRM_DEVICE:-/dev/dri/card1}"
-      DRM_CONNECTOR: "${DRM_CONNECTOR:-DP-1}"
+      DRM_CONNECTOR: "${DRM_CONNECTOR:-auto}"
+      DRM_MONITOR_EDID_SHA256: "${DRM_MONITOR_EDID_SHA256:-}"
       PHOTO_DURATION: "${PHOTO_DURATION:-15}"
       PHOTO_ROTATE: "${PHOTO_ROTATE:-0}"

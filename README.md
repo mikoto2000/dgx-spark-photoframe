@@ -61,72 +61,106 @@ cp .env.example .env
 
 ```dotenv
 PHOTO_DIR=/home/mikoto/photos
-DRM_DEVICE=/dev/dri/card1
-DRM_CONNECTOR=DP-1
+DRM_DEVICE=/dev/dri/by-path/...
+DRM_CONNECTOR=auto
+DRM_MONITOR_EDID_SHA256=
 PHOTO_DURATION=15
 PHOTO_ROTATE=0
 ```
 
 ## DRM Device
 
-使用可能な DRM device は次のコマンドで確認できます。
+`card0` / `card1` は起動時のドライバやデバイスの列挙順によって変化することがあります。
+ホストでは物理接続経路を表す永続パスを推奨します。
 
 ```bash
-ls -l /dev/dri/
+ls -l /dev/dri/by-path/
 ```
 
-例:
-
-```text
-by-path
-card1
-renderD128
-```
-
-この場合:
+表示された `*-card` のパスをそのまま設定してください。`*-render` は使用しません。
 
 ```dotenv
-DRM_DEVICE=/dev/dri/card1
+DRM_DEVICE=/dev/dri/by-path/...
+DRM_CONNECTOR=auto
+DRM_MONITOR_EDID_SHA256=
 ```
 
-を指定します。
+`...` は実際の `platform-...-card` または `pci-...-card` に置き換えてください。
+経路をコードへ固定していません。`DRM_DEVICE=/dev/dri/card1` も利用できますが、
+再起動後の安定性は保証できません。
 
-`card0` や `card1` は環境や起動状態によって変化する可能性があるため、固定値とは限りません。
+Compose はホストのデバイスをコンテナの `/dev/dri/photoframe` へマッピングします。
+mpv は常にこの固定パスを使用します。起動時に character device の存在、読み書き権限、
+open の成功を確認します。DRM master / KMS の取得可否は mpv の起動結果で確認してください。
 
 ## DRM Connector
 
-接続中の connector は次のコマンドで確認できます。
+`Unknown-4` 等の connector 名も再起動で変化することがあるため、
+`DRM_CONNECTOR=auto` を推奨します。デバイスの major/minor 番号と
+sysfs の `card*/dev` を照合して現在の card を識別し、その card の connector だけを調べます。
+ホストの `/sys` を `/host-sys:ro` へマウントして、`class/drm` の相対 symlink と
+`devices` 配下の参照先をまとめて保持します。クラスディレクトリだけのマウントでは
+リンク先を参照できない可能性があります。
+
+選択ルール:
+
+- `auto` 以外の明示 connector 名は、そのまま mpv に渡します。EDID 指定は使用しません。
+- `auto` + EDID hash は、connected かつ hash が一致する connector が1件の場合だけ選択します。
+- `auto` + hash 未指定は、対象 device の connected connector がちょうど1件の場合だけ選択します。
+- connected が0件、複数件、hash が不一致、または同じ EDID が複数件ならエラー終了します。
+- disconnected connector は選択しません。EDID 指定時の空・取得不能な EDID は理由を stderr に記録して候補から除外します。
+- EDID を使用しない1件の自動選択では、EDID を取得できなくても選択できます。
+
+複数モニタ時は `DRM_MONITOR_EDID_SHA256` を設定してください。
+同じ EDID を返すモニタを区別できない場合は明示 connector 名が必要です。
+
+接続状態と EDID hash の確認:
 
 ```bash
-grep -H connected /sys/class/drm/card*-*/status
+grep -H '^connected$' /sys/class/drm/card*-*/status
+for f in /sys/class/drm/card*-*/edid; do
+  hash=$(cat "$f" | sha256sum) || continue
+  hash=${hash%% *}
+  [ "$hash" = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ] || echo "$hash $f"
+done
 ```
 
-または `mpv` から直接確認できます。
+sysfs はサイズ0でもデータを返す場合があるため、実際に読み取って空データを除外します。
+対象モニタの64桁 hash を DRM_MONITOR_EDID_SHA256 に設定してください。
+EDID はモニタ・接続機器・ファームウェアの変更で変わる可能性があります。
 
-```bash
-mpv \
-  --vo=drm \
-  --drm-device=/dev/dri/card1 \
-  --drm-connector=help
-```
-
-DGX Spark の USB-C DisplayPort 接続では、connector が `DP-1` のような名前ではなく、次のように認識される場合があります。
-
-```text
-HDMI-A-1 (disconnected)
-Unknown-2 (disconnected)
-Unknown-3 (disconnected)
-Unknown-4 (connected)
-Unknown-5 (disconnected)
-```
-
-この場合:
+明示指定も引き続き利用できます:
 
 ```dotenv
 DRM_CONNECTOR=Unknown-4
 ```
 
-を指定します。
+## Verification
+
+Bash と coreutils を使用した fixture テスト:
+
+```bash
+bash tests/drm-selection.sh
+bash tests/slideshow.sh
+bash -n entrypoint.sh drm-selection.sh
+```
+
+DGX Spark 実機で設定とマッピングを確認します:
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose logs --tail=100
+docker compose exec photoframe bash -c 'stat -Lc "%t:%T %n" /dev/dri/photoframe; ls -l /host-sys/class/drm; cat /host-sys/class/drm/card*/dev'
+```
+
+ログの Detected DRM card / Detected connector / EDID SHA256 と表示先を確認します。
+再起動後も同じモニタに表示されることを確認してください。起動前にモニタを接続します。
+起動後の抜き差しで connector は再解決しません。必要ならコンテナを再作成してください。
+物理接続経路が変わった場合は DRM_DEVICE の更新が必要です。
+
+sysfs のデバイス番号は [Linux kernel の説明](https://www.kernel.org/doc/html/latest/filesystems/sysfs.html)、
+デバイスマッピングは [Docker Compose の仕様](https://docs.docker.com/reference/compose-file/services/#devices) を参照してください。
 
 ## Photos
 
@@ -186,15 +220,15 @@ PHOTO_DIR=/home/mikoto/photos
 
 ### `DRM_DEVICE`
 
-使用する DRM device。
+ホストの永続 DRM device パス。DRM Device を参照。
 
 ```dotenv
-DRM_DEVICE=/dev/dri/card1
+DRM_DEVICE=/dev/dri/by-path/...
 ```
 
 ### `DRM_CONNECTOR`
 
-画像を表示するモニタの DRM connector。
+auto または明示 connector 名。DRM_MONITOR_EDID_SHA256 による指定方法は DRM Connector を参照。
 
 ```dotenv
 DRM_CONNECTOR=Unknown-4
@@ -266,7 +300,7 @@ ls -l /dev/dri/
 例えば `card1` が存在する場合:
 
 ```dotenv
-DRM_DEVICE=/dev/dri/card1
+DRM_DEVICE=/dev/dri/by-path/...
 ```
 
 とします。
