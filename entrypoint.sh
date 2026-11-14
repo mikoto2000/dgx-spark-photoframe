@@ -56,8 +56,14 @@ find /photos \
   \) \
   -print0 \
   | sort -z \
-  | tr '\0' '\n' \
-  > /tmp/photos.m3u
+  | while IFS= read -r -d '' photo; do
+      # A line-based playlist cannot represent these paths as one item.
+      if [[ $photo == *$'\n'* || $photo == *$'\r'* ]]; then
+        printf 'Skipping photo path containing CR or LF: %q\n' "$photo" >&2
+      else
+        printf '%s\n' "$photo"
+      fi
+    done > /tmp/photos.m3u
 
 # 表示対象の画像が1枚も存在しない場合は、
 # mpv を起動せずエラー終了する。
