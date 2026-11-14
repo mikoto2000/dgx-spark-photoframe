@@ -146,9 +146,17 @@ Bash と coreutils を使用した fixture テスト:
 
 ```bash
 bash tests/drm-selection.sh
-bash tests/slideshow.sh
 bash tests/start-photoframe.sh
 for file in *.sh scripts/*.sh tests/*.sh; do bash -n "$file" || exit; done
+```
+
+Docker イメージの entrypoint と mpv の JPEG・PNG・WebP 読み込みを検証するには、
+Linux ホストで次を実行します。テストは DRM デバイスと sysfs を模擬し、実モニタへの描画を省略します。
+GitHub Actions では x64 と Arm64 の両方で実行します。
+
+```bash
+docker build -t photoframe-test .
+bash tests/slideshow.sh photoframe-test
 ```
 
 DGX Spark 実機で設定とマッピングを確認します:
