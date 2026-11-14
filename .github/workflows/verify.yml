@@ -23,6 +23,19 @@ jobs:
           for file in *.sh scripts/*.sh tests/*.sh; do bash -n "$file" || exit; done
       - name: Build image
         run: docker build -t photoframe-test .
+      - name: Verify local photos and settings are excluded from the build
+        run: |
+          mkdir -p photos other-photos
+          touch .env photos/sample.jpg other-photos/sample.jpg
+          docker build --file - . <<'EOF'
+          FROM ubuntu:24.04
+          COPY . /context
+          RUN test -f /context/entrypoint.sh \
+              && test ! -e /context/.env \
+              && test ! -e /context/.git \
+              && test ! -e /context/photos \
+              && test ! -e /context/other-photos
+          EOF
       - name: Reject a device without KMS
         run: |
           if output=$(docker run --rm --entrypoint /usr/local/bin/drm-probe photoframe-test /dev/null 2>&1); then
