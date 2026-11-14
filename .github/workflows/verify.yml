@@ -10,7 +10,11 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -18,11 +22,12 @@ jobs:
       - name: Bash fixtures and syntax
         run: |
           bash tests/drm-selection.sh
-          bash tests/slideshow.sh
           bash tests/start-photoframe.sh
           for file in *.sh scripts/*.sh tests/*.sh; do bash -n "$file" || exit; done
       - name: Build image
         run: docker build -t photoframe-test .
+      - name: Slideshow entrypoint and image decoding
+        run: bash tests/slideshow.sh photoframe-test
       - name: Verify local photos and settings are excluded from the build
         run: |
           mkdir -p photos other-photos
