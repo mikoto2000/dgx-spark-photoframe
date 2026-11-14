@@ -1,0 +1,32 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Bash fixtures and syntax
+        run: |
+          bash tests/drm-selection.sh
+          bash tests/slideshow.sh
+          bash tests/start-photoframe.sh
+          for file in *.sh scripts/*.sh tests/*.sh; do bash -n "$file" || exit; done
+      - name: Build image
+        run: docker build -t photoframe-test .
+      - name: Reject a device without KMS
+        run: |
+          if output=$(docker run --rm --entrypoint /usr/local/bin/drm-probe photoframe-test /dev/null 2>&1); then
+            echo "The probe accepted a non-DRM device" >&2
+            exit 1
+          fi
+          printf '%s\n' "$output" | grep -F 'Cannot query KMS resources for /dev/null:'
