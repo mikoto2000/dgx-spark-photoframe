@@ -192,6 +192,8 @@ sysfs のデバイス番号は [Linux kernel の説明](https://www.kernel.org/d
 * `.png`
 * `.webp`
 
+パスに改行（LF または CR）が含まれる画像は、ログに理由を記録して再生対象から除外します。
+
 ## Start
 
 ビルドして起動します。

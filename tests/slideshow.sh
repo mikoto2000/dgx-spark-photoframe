@@ -26,4 +26,15 @@ for arg in --vo=drm --drm-device=/dev/dri/photoframe --drm-connector=Unknown-9 -
 done
 rm "$root/photos/a photo.JPG" "$root/photos/sub/b.webp"
 if bash "$root/playlist.sh"; then echo 'Empty playlist should fail' >&2; exit 1; fi
+# Emulate Linux paths with CR/LF even on hosts that forbid them in filenames.
+cat > "$root/bin/find" <<'EOF'
+#!/bin/bash
+printf '%s\0' "$TEST_PHOTOS/normal photo.jpg" \
+    "$TEST_PHOTOS/"$'album\n/tmp/other.png\ncover.jpg' \
+    "$TEST_PHOTOS/"$'carriage\rreturn.webp'
+EOF
+chmod +x "$root/bin/find"
+TEST_PHOTOS="$root/photos" bash "$root/playlist.sh" 2>"$root/error"
+[[ $(cat "$root/playlist") == "$root/photos/normal photo.jpg" ]]
+[[ $(grep -cF 'Skipping photo path containing CR or LF:' "$root/error") == 2 ]]
 echo 'Slideshow fixture checks passed.'
