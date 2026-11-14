@@ -142,7 +142,8 @@ Bash と coreutils を使用した fixture テスト:
 ```bash
 bash tests/drm-selection.sh
 bash tests/slideshow.sh
-bash -n entrypoint.sh drm-selection.sh
+bash tests/start-photoframe.sh
+for file in *.sh scripts/*.sh tests/*.sh; do bash -n "$file" || exit; done
 ```
 
 DGX Spark 実機で設定とマッピングを確認します:
@@ -205,6 +206,28 @@ docker compose logs -f
 ```bash
 docker compose down
 ```
+
+## ホスト再起動時の自動起動
+
+Docker がホストの DRM デバイスより先に起動すると、デバイスの割り当てに失敗する場合があります。
+デバイスの生成後は `docker compose up -d` で起動できます。
+
+無人運用では、付属の systemd ユニットを有効にできます。先に `.env` を設定し、
+`docker compose build` を実行してください。ユニットの `WorkingDirectory` は
+リポジトリの絶対パスに合わせます。既定のパスに配置した場合は次の手順で有効にできます。
+
+```bash
+sudo install -m 644 systemd/dgx-spark-photoframe.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now dgx-spark-photoframe.service
+```
+
+ユニットは Compose が解決した `DRM_DEVICE` がキャラクターデバイスになるまで最大60秒待ちます。
+待機時間を変える場合はユニットに `Environment=DRM_DEVICE_WAIT_SECONDS=120` などを指定できます。
+タイムアウトや Compose の起動失敗後は systemd が15秒おいて再試行します。
+状態とログは `systemctl status dgx-spark-photoframe` と
+`journalctl -u dgx-spark-photoframe` で確認できます。
+この構成でサービスを停止する場合は `sudo systemctl stop dgx-spark-photoframe` を使います。
 
 ## Configuration
 
