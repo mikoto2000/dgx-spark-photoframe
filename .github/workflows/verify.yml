@@ -36,6 +36,21 @@ jobs:
               && test ! -e /context/photos \
               && test ! -e /context/other-photos
           EOF
+      - name: Reject a missing photo directory
+        env:
+          COMPOSE_PROJECT_NAME: photoframe-mount-test
+          DRM_DEVICE: /dev/null
+        run: |
+          root=$(mktemp -d)
+          trap 'docker compose down; rmdir "$root"' EXIT
+          export PHOTO_DIR="$root/missing photos"
+          docker tag photoframe-test photoframe-mount-test-photoframe
+          if output=$(docker compose run --rm --entrypoint /bin/true photoframe 2>&1); then
+            echo "Compose accepted a missing PHOTO_DIR" >&2
+            exit 1
+          fi
+          printf '%s\n' "$output" | grep -F 'bind source path does not exist'
+          test ! -e "$PHOTO_DIR"
       - name: Reject a device without KMS
         run: |
           if output=$(docker run --rm --entrypoint /usr/local/bin/drm-probe photoframe-test /dev/null 2>&1); then
