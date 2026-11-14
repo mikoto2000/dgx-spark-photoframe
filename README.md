@@ -196,7 +196,8 @@ sysfs のデバイス番号は [Linux kernel の説明](https://www.kernel.org/d
 
 ## Start
 
-ビルドして起動します。
+ビルドして起動します。Docker のビルドコンテキストにはイメージの作成に必要な
+ファイルだけを含めます。写真は実行時に `PHOTO_DIR` からマウントします。
 
 ```bash
 docker compose up -d --build

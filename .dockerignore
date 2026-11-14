@@ -1,0 +1,5 @@
+*
+!Dockerfile
+!drm-probe.c
+!drm-selection.sh
+!entrypoint.sh
