@@ -25,6 +25,8 @@ if [[ $mode == auto ]]; then
   read -r major minor <<< "$identity"
   card=$(drm_card_for_id "$sysfs" "$((16#$major)):$((16#$minor))")
   echo "Detected DRM card: $card"
+  # Refresh kernel connector status and EDID before consulting sysfs.
+  drm-probe "$device"
 fi
 connector=$(drm_resolve_connector "$sysfs" "${card:-}" "$mode" "$wanted")
 echo "Detected connector: $connector"

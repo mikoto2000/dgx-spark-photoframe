@@ -55,7 +55,8 @@ cd dgx-spark-photoframe
 cp .env.example .env
 ```
 
-環境に合わせて `.env` を編集します。
+環境に合わせて `.env` を編集します。旧版で既定の `/dev/dri/card1` に依存していた場合も、
+更新後は `DRM_DEVICE` を明示してください。
 
 例:
 
@@ -97,7 +98,11 @@ open の成功を確認します。DRM master / KMS の取得可否は mpv の�
 
 `Unknown-4` 等の connector 名も再起動で変化することがあるため、
 `DRM_CONNECTOR=auto` を推奨します。デバイスの major/minor 番号と
-sysfs の `card*/dev` を照合して現在の card を識別し、その card の connector だけを調べます。
+sysfs の `card*/dev` を照合して現在の card を識別します。
+対象カードを libdrm でプローブしてカーネルの接続状態と EDID を更新し、そのカードの
+connector だけを調べます。プローブは DRM master を取得できる状態で行い、描画は mpv が担当します。
+プローブに失敗した場合はエラー終了します。`DRM master is unavailable` の場合は、
+対象カードを使用中のディスプレイサーバーや別の DRM/KMS アプリケーションを確認してください。
 ホストの `/sys` を `/host-sys:ro` へマウントして、`class/drm` の相対 symlink と
 `devices` 配下の参照先をまとめて保持します。クラスディレクトリだけのマウントでは
 リンク先を参照できない可能性があります。
