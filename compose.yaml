@@ -11,7 +11,12 @@ services:
       - "${DRM_DEVICE:?Set DRM_DEVICE to a host /dev/dri/by-path/*-card path}:/dev/dri/photoframe"
 
     volumes:
-      - "${PHOTO_DIR:-./photos}:/photos:ro"
+      - type: bind
+        source: "${PHOTO_DIR:-./photos}"
+        target: /photos
+        read_only: true
+        bind:
+          create_host_path: false
       # Preserve sysfs symlink targets under devices/ as well as class/drm/.
       - "/sys:/host-sys:ro"
 
